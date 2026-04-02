@@ -213,7 +213,7 @@ class PdfGenerator:
         # Barcode at bottom (if present)
         barcode_top = margin
         if has_barcode:
-            barcode_img = _make_barcode_image(ean, module_height=4, font_size=4)
+            barcode_img = _make_barcode_image(ean, module_height=6, font_size=5)
             if barcode_img:
                 bc_buf = io.BytesIO()
                 barcode_img.save(bc_buf, format='PNG')

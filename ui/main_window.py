@@ -606,7 +606,6 @@ class MainWindow:
         c.delete("all")
         self._barcode_tk_refs = []  # clear old barcode images
 
-        RATIO  = 1.61
         PW     = self._PREV_W   # 500
         PH     = self._PREV_H   # 360
         DW     = self._DRAW_W   # 460
@@ -620,38 +619,43 @@ class MainWindow:
             x0   = (PW - DW) // 2
             y0   = max(16, (PH - lh) // 2)
 
-            m       = round(lh * 0.10)
-            f_pro   = max(9,  round(lh * 0.085))
-            f_title = round(f_pro   * RATIO)
-            f_price = round(f_title * RATIO)
+            # Match PDF label proportions (89×36mm, margin=3mm)
+            m       = round(lh * 0.083)          # 3/36
+            f_title = max(8,  round(lh * 0.12))   # ~11pt on 36mm
+            f_price = max(12, round(lh * 0.19))   # ~18pt on 36mm
 
             c.create_rectangle(x0+3, y0+3, x0+DW+3, y0+lh+3,
                                 fill="#C8C8C8", outline="")
             c.create_rectangle(x0, y0, x0+DW, y0+lh,
                                 fill="white", outline="#BBBBBB", width=1)
-            art_id = c.create_text(x0 + DW//2, y0+m,
+
+            # Article at top (PDF: page_h - margin - f_title)
+            art_id = c.create_text(x0 + DW//2, y0 + m,
                           text=clean_article(p.get("article", "")),
                           font=("Arial", f_title, "bold"),
                           anchor="n", fill="black", width=DW - 2*m,
                           justify="center")
-            # Price at vertical centre of card (matches PDF layout)
-            price_y = y0 + lh // 2
-            # Clamp: don't overlap article text above
             art_bbox = c.bbox(art_id)
             art_bottom = art_bbox[3] if art_bbox else y0 + m + f_title * 2
-            if price_y - f_price // 2 < art_bottom + 2:
-                price_y = art_bottom + f_price // 2 + 2
+
+            # Barcode at bottom (PDF: by=margin*0.2, width=30/89mm)
+            ean = str(p.get("ean", "")).strip()
+            barcode_top = y0 + lh - m
+            if ean:
+                bc_item = self._draw_barcode_on_canvas(c, ean,
+                    x0 + DW // 2, y0 + lh - round(lh * 0.02),
+                    target_w=round(DW * 0.337), anchor="s")
+                if bc_item:
+                    bc_bbox = c.bbox(bc_item)
+                    if bc_bbox:
+                        barcode_top = bc_bbox[1]
+
+            # Price centred between article bottom and barcode top
+            price_y = (art_bottom + barcode_top) // 2
             c.create_text(x0 + DW//2, price_y,
                           text=f"{fp(p.get('pvente', 0))}€/HTVA",
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
-
-            # Barcode — bottom of label
-            ean = str(p.get("ean", "")).strip()
-            if ean:
-                self._draw_barcode_on_canvas(c, ean,
-                    x0 + DW // 2, y0 + lh - round(lh * 0.12),
-                    target_w=round(DW * 0.45), anchor="center")
 
         else:  # A5 on left half of A4 landscape — blank paper
             # Preview: left half of A4 landscape (148.5 × 210 mm ratio)
@@ -663,9 +667,10 @@ class MainWindow:
             x0   = (PW - a5w) // 2
             y0   = max(4, (PH - a5h) // 2)
 
+            # Match PDF proportions (A4 landscape, content on left 148.5mm)
             m       = round(a5w * 0.06)
-            f_title = max(12, round(a5w * 0.10))
-            f_price = max(16, round(a5w * 0.14))
+            f_title = max(12, round(a5h * 0.065))  # ~58pt on 595pt
+            f_price = max(16, round(a5h * 0.11))   # ~100pt on 595pt
 
             # Drop-shadow + white card
             c.create_rectangle(x0+3, y0+3, x0+a5w+3, y0+a5h+3,
@@ -673,9 +678,9 @@ class MainWindow:
             c.create_rectangle(x0, y0, x0+a5w, y0+a5h,
                                 fill="white", outline="#BBBBBB", width=1)
 
-            # Article — 2cm from top (≈ 6.7% of 297mm), centred
+            # Article — 20mm from top on 210mm = 9.5%
             c.create_text(x0 + a5w // 2,
-                          y0 + round(a5h * 0.067),
+                          y0 + round(a5h * 0.095),
                           text=clean_article(p.get("article", "")),
                           font=("Arial", f_title, "bold"),
                           anchor="n", fill="black",
@@ -688,26 +693,26 @@ class MainWindow:
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
 
-            # Barcode — between price and logo
+            # Barcode — PDF: bottom at 35mm from bottom = 83.3% from top
             ean = str(p.get("ean", "")).strip()
             if ean:
                 self._draw_barcode_on_canvas(c, ean,
-                    x0 + a5w // 2, y0 + round(a5h * 0.68),
-                    target_w=round(a5w * 0.55), anchor="center")
+                    x0 + a5w // 2, y0 + round(a5h * 0.83),
+                    target_w=round(a5w * 0.40), anchor="s")
 
-            # Logo — bottom, centred (use logo image if available)
+            # Logo — bottom, centred (PDF: at margin=10mm from bottom)
             logo = self._logo_path()
             if logo and os.path.exists(logo):
                 try:
                     from PIL import Image, ImageTk
                     img = Image.open(logo)
-                    target_w = int(a5w * 0.76)  # ~80% of card width
+                    target_w = int(a5w * 0.54)  # 80/148.5 = 54%
                     scale = target_w / img.width
                     target_h = int(img.height * scale)
                     img = img.resize((target_w, target_h), Image.LANCZOS)
                     self._a5_logo_tk = ImageTk.PhotoImage(img)
                     c.create_image(x0 + a5w // 2,
-                                   y0 + a5h - round(a5h * 0.035) - target_h // 2,
+                                   y0 + a5h - round(a5h * 0.048) - target_h // 2,
                                    image=self._a5_logo_tk, anchor="center")
                 except Exception:
                     pass
@@ -716,24 +721,24 @@ class MainWindow:
 
     def _draw_barcode_on_canvas(self, canvas, ean, cx, cy,
                                 target_w=120, anchor="center"):
-        """Draw an EAN barcode on a tkinter canvas at (cx, cy)."""
+        """Draw an EAN barcode on a tkinter canvas. Returns item id or None."""
         try:
             from src.pdf_generator import _make_barcode_image
             from PIL import ImageTk
             img = _make_barcode_image(ean, module_height=10, font_size=8)
             if not img:
-                return
+                return None
             scale = target_w / img.width
             new_h = int(img.height * scale)
             img = img.resize((target_w, new_h))
-            # Keep reference to prevent garbage collection
             if not hasattr(self, '_barcode_tk_refs'):
                 self._barcode_tk_refs = []
             tk_img = ImageTk.PhotoImage(img)
             self._barcode_tk_refs.append(tk_img)
-            canvas.create_image(cx, cy, image=tk_img, anchor=anchor)
+            item = canvas.create_image(cx, cy, image=tk_img, anchor=anchor)
+            return item
         except Exception:
-            pass
+            return None
 
     # ── History ───────────────────────────────────────────────────────
 
