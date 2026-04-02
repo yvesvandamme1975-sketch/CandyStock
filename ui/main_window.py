@@ -646,16 +646,15 @@ class MainWindow:
                           anchor="center", fill="black")
 
         else:  # A5 on left half of A4 portrait — blank paper
-            # Preview: A5 portrait card (105 × 148.5 mm ratio)
-            a5w  = DW // 2         # left half width
-            a5h  = round(a5w * 148.5 / 105)
+            # Preview: left half of A4 portrait (105 × 297 mm ratio)
+            a5w  = DW // 2
+            a5h  = round(a5w * 297 / 105)  # full A4 height ratio
             x0   = (PW - a5w) // 2
-            y0   = max(8, (PH - a5h) // 2)
+            y0   = max(4, (PH - a5h) // 2)
 
-            m       = round(a5h * 0.05)
-            f_pro   = max(9,  round(a5h * 0.04))
-            f_title = round(f_pro * RATIO * 1.1)
-            f_price = round(f_pro * RATIO * RATIO)
+            m       = round(a5w * 0.08)
+            f_title = max(12, round(a5w * 0.12))
+            f_price = max(16, round(a5w * 0.16))
 
             # Drop-shadow + white card
             c.create_rectangle(x0+3, y0+3, x0+a5w+3, y0+a5h+3,
@@ -663,20 +662,37 @@ class MainWindow:
             c.create_rectangle(x0, y0, x0+a5w, y0+a5h,
                                 fill="white", outline="#BBBBBB", width=1)
 
-            # Article — top, centred
+            # Article — 2cm from top (≈ 6.7% of 297mm), centred
             c.create_text(x0 + a5w // 2,
-                          y0 + round(a5h * 0.08),
+                          y0 + round(a5h * 0.067),
                           text=clean_article(p.get("article", "")),
                           font=("Arial", f_title, "bold"),
                           anchor="n", fill="black",
                           width=a5w - 2 * m, justify="center")
 
-            # Price — centred
+            # Price — middle of page, centred
             c.create_text(x0 + a5w // 2,
-                          y0 + round(a5h * 0.45),
+                          y0 + a5h // 2,
                           text=f"{fp(p.get('pvente', 0))}€/HTVA",
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
+
+            # Logo — bottom, centred (use logo image if available)
+            logo = self._logo_path()
+            if logo and os.path.exists(logo):
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(logo)
+                    target_w = int(a5w * 0.76)  # ~80% of card width
+                    scale = target_w / img.width
+                    target_h = int(img.height * scale)
+                    img = img.resize((target_w, target_h), Image.LANCZOS)
+                    self._a5_logo_tk = ImageTk.PhotoImage(img)
+                    c.create_image(x0 + a5w // 2,
+                                   y0 + a5h - round(a5h * 0.035) - target_h // 2,
+                                   image=self._a5_logo_tk, anchor="center")
+                except Exception:
+                    pass
 
     # ── History ───────────────────────────────────────────────────────
 

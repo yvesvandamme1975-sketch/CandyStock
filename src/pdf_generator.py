@@ -41,7 +41,7 @@ class PdfGenerator:
 
         # ── Article name ── 2cm from top, centred ────────────────────
         art_top = page_h - 20 * mm
-        art_font = 48
+        art_font = 56
         line1 = article
         line2 = ""
         two_lines = False
@@ -78,7 +78,7 @@ class PdfGenerator:
             c.drawCentredString(cx, art_top, line1)
 
         # ── Price ── middle of page, centred, big ────────────────────
-        price_font = 80
+        price_font = 90
         while price_font > 30 and stringWidth(price_str, "Helvetica-Bold", price_font) > max_w:
             price_font -= 2
         c.setFont("Helvetica-Bold", price_font)
