@@ -27,7 +27,7 @@ class PdfGenerator:
         article   = clean_article(str(product.get("article", "")).strip())
         pvente    = float(product.get("pvente",    0))
 
-        price_str = f"{pvente:.2f}".replace(".", ",") + "\u20ac"
+        price_str = f"{pvente:.2f}".replace(".", ",") + "\u20ac/HTVA"
 
         page_w, page_h = A4   # 595.28 × 841.89 pt (210 × 297 mm)
         half_w  = page_w / 2  # left A5 zone = 105mm
@@ -37,52 +37,67 @@ class PdfGenerator:
         c = rl_canvas.Canvas(output_path, pagesize=A4)
         c.setFillColor(colors.black)
 
-        # ── Article name ── top of left half, centred ────────────────
-        max_w     = half_w - 2 * margin
-        font_size = 32
-        line_gap  = font_size * 1.2
-        art_top   = page_h - 20 * mm
+        max_w = half_w - 2 * margin
 
-        if stringWidth(article, "Helvetica-Bold", font_size) <= max_w:
-            c.setFont("Helvetica-Bold", font_size)
-            c.drawCentredString(cx, art_top, article)
-        else:
-            while font_size > 14:
+        # ── Article name ── 2cm from top, centred ────────────────────
+        art_top = page_h - 20 * mm
+        art_font = 48
+        line1 = article
+        line2 = ""
+        two_lines = False
+        # Try single line first, shrink if needed
+        while art_font > 20 and stringWidth(article, "Helvetica-Bold", art_font) > max_w:
+            art_font -= 1
+        if stringWidth(article, "Helvetica-Bold", art_font) > max_w:
+            # Won't fit on one line even at min size — wrap to 2 lines
+            art_font = 48
+            while art_font > 20:
                 words = article.split()
-                line1 = ""
+                l1 = ""
                 for word in words:
-                    test = (line1 + " " + word).strip()
-                    if stringWidth(test, "Helvetica-Bold", font_size) <= max_w:
-                        line1 = test
+                    test = (l1 + " " + word).strip()
+                    if stringWidth(test, "Helvetica-Bold", art_font) <= max_w:
+                        l1 = test
                     else:
                         break
-                line2 = article[len(line1):].strip()
-                if (line1 and
-                        stringWidth(line1, "Helvetica-Bold", font_size) <= max_w and
-                        stringWidth(line2, "Helvetica-Bold", font_size) <= max_w):
+                l2 = article[len(l1):].strip()
+                if (l1 and
+                        stringWidth(l1, "Helvetica-Bold", art_font) <= max_w and
+                        stringWidth(l2, "Helvetica-Bold", art_font) <= max_w):
                     break
-                font_size -= 1
-            line_gap = font_size * 1.2
-            words = article.split()
-            line1 = ""
-            for word in words:
-                test = (line1 + " " + word).strip()
-                if stringWidth(test, "Helvetica-Bold", font_size) <= max_w:
-                    line1 = test
-                else:
-                    break
-            line2 = article[len(line1):].strip()
-            c.setFont("Helvetica-Bold", font_size)
-            c.drawCentredString(cx, art_top, line1)
-            c.drawCentredString(cx, art_top - line_gap, line2)
+                art_font -= 1
+            line1 = l1
+            line2 = l2
+            two_lines = True
 
-        # ── Price ── large, centred in left half ─────────────────────
-        c.setFont("Helvetica-Bold", 64)
+        c.setFont("Helvetica-Bold", art_font)
+        if two_lines:
+            c.drawCentredString(cx, art_top, line1)
+            c.drawCentredString(cx, art_top - art_font * 1.2, line2)
+        else:
+            c.drawCentredString(cx, art_top, line1)
+
+        # ── Price ── middle of page, centred, big ────────────────────
+        price_font = 80
+        while price_font > 30 and stringWidth(price_str, "Helvetica-Bold", price_font) > max_w:
+            price_font -= 2
+        c.setFont("Helvetica-Bold", price_font)
         c.drawCentredString(cx, page_h / 2, price_str)
 
-        # ── HTVA mention ── bottom-right of left half ────────────────
-        c.setFont("Helvetica", 12)
-        c.drawRightString(half_w - margin, margin + 8 * mm, "HTVA")
+        # ── Logo ── bottom, centred ──────────────────────────────────
+        if logo_path and os.path.exists(logo_path):
+            try:
+                logo = ImageReader(logo_path)
+                lw, lh = logo.getSize()
+                target_w = 80 * mm
+                scale = target_w / lw
+                draw_w = target_w
+                draw_h = lh * scale
+                lx = cx - draw_w / 2
+                ly = margin
+                c.drawImage(logo, lx, ly, draw_w, draw_h, mask='auto')
+            except Exception:
+                pass
 
         c.save()
         return output_path
@@ -95,7 +110,7 @@ class PdfGenerator:
         article   = clean_article(str(product.get("article", "")).strip())
         pvente    = float(product.get("pvente",    0))
 
-        price_str = f"{pvente:.2f}".replace(".", ",") + "\u20ac"
+        price_str = f"{pvente:.2f}".replace(".", ",") + "\u20ac/HTVA"
 
         page_w = width_mm  * mm
         page_h = height_mm * mm
@@ -103,9 +118,8 @@ class PdfGenerator:
 
         # Golden-ratio font stack (8 → 13 → 21 pt)
         RATIO   = 1.61
-        f_pro   = 8
-        f_title = round(f_pro   * RATIO)   # 13
-        f_price = round(f_title * RATIO)   # 21
+        f_title = 13
+        f_price = 21
 
         c = rl_canvas.Canvas(output_path, pagesize=(page_w, page_h))
 
@@ -137,11 +151,6 @@ class PdfGenerator:
         # ── Price — centred vertically and horizontally ─────────────
         c.setFont("Helvetica-Bold", f_price)
         c.drawCentredString(page_w / 2, page_h / 2 - f_price / 2, price_str)
-
-        # ── HTVA mention — bottom-right ─────────────────────────────
-        c.setFont("Helvetica", f_pro)
-        c.setFillColor(colors.black)
-        c.drawRightString(page_w - margin, margin, "HTVA")
 
         c.save()
         return output_path

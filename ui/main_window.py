@@ -641,12 +641,9 @@ class MainWindow:
             if price_y - f_price // 2 < art_bottom + 2:
                 price_y = art_bottom + f_price // 2 + 2
             c.create_text(x0 + DW//2, price_y,
-                          text=f"{fp(p.get('pvente', 0))}€",
+                          text=f"{fp(p.get('pvente', 0))}€/HTVA",
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
-            c.create_text(x0+DW-m, y0+lh-m,
-                          text="HTVA",
-                          font=("Arial", f_pro), anchor="se", fill="black")
 
         else:  # A5 on left half of A4 portrait — blank paper
             # Preview: A5 portrait card (105 × 148.5 mm ratio)
@@ -677,15 +674,9 @@ class MainWindow:
             # Price — centred
             c.create_text(x0 + a5w // 2,
                           y0 + round(a5h * 0.45),
-                          text=f"{fp(p.get('pvente', 0))}€",
+                          text=f"{fp(p.get('pvente', 0))}€/HTVA",
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
-
-            # HTVA mention — bottom-right
-            c.create_text(x0 + a5w - m,
-                          y0 + round(a5h * 0.88),
-                          text="HTVA",
-                          font=("Arial", f_pro), anchor="e", fill="black")
 
     # ── History ───────────────────────────────────────────────────────
 
