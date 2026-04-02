@@ -3,20 +3,27 @@ from typing import Dict, List, Optional
 
 SYNONYMS: Dict[str, List[str]] = {
     "article":   ["article", "nom", "libellé", "libelle", "désignation",
-                  "designation", "description", "produit"],
+                  "designation", "description", "produit", "product name",
+                  "product"],
     "pvente":    ["pvente", "pv ", "prix vente", "prix de vente",
-                  "selling price", "vente"],
-    "ppro":      ["ppro", "pprottc", "ppro ttc", "prix pro ttc", "pro ttc"],
+                  "selling price", "vente", "price without vat",
+                  "prix htva", "prix hors tva", "price excl"],
+    "ppro":      ["ppro", "pprottc", "ppro ttc", "prix pro ttc", "pro ttc",
+                  "price with vat", "prix tvac", "prix ttc"],
     "ppro_htva": ["ppro htva", "pprohtva", "ppro_htva", "prix pro htva",
-                  "pro htva", "ppht"],
+                  "pro htva", "ppht", "cost price", "prix achat htva"],
     "origine":   ["origine", "origin", "pays", "country"],
-    "p_l":       ["p/l", "p_l", "prix/litre", "prix litre", "prix/l", "pl"],
-    "pa_htva":   ["pa htva", "pa_htva", "prix achat", "pa 2026", "pa htva 2026"],
-    "taux_tva":  ["taux tva", "taux_tva", "tva", "vat"],
-    "ean":       ["ean", "barcode", "code barre", "code-barre"],
+    "p_l":       ["p/l", "p_l", "prix/litre", "prix litre", "prix/l",
+                  "price per litre"],
+    "pa_htva":   ["pa htva", "pa_htva", "prix achat", "pa 2026",
+                  "pa htva 2026", "cost price"],
+    "taux_tva":  ["taux tva", "taux_tva", "tva %", "vat rate",
+                  "taux de tva"],
+    "ean":       ["ean", "barcode", "code barre", "code-barre",
+                  "code ean", "ean13", "ean-13", "gtin"],
 }
 
-REQUIRED = ["article", "pvente", "ppro", "ppro_htva"]
+REQUIRED = ["article", "pvente"]
 
 
 class ColumnMapper:
