@@ -49,7 +49,7 @@ class MainWindow:
 
         self._root = TkinterDnD.Tk()
         ctk.set_appearance_mode("light")
-        self._root.title("CandyStock — Impression étiquettes")
+        self._root.title("CandyStock — Impression étiquettes  (v2.1)")
         self._root.geometry("1200x720")
         self._root.configure(bg=BG)
 
