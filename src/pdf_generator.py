@@ -6,7 +6,6 @@ from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from src.text_cleaner import clean_article
-from src.excel_reader import ExcelReader
 
 PAGE_W, PAGE_H = A4   # portrait: 210 × 297 mm
 MARGIN = 10 * mm
@@ -27,14 +26,8 @@ class PdfGenerator:
         """
         article   = clean_article(str(product.get("article", "")).strip())
         pvente    = float(product.get("pvente",    0))
-        ppro      = float(product.get("ppro",      0))
-        ppro_htva = float(product.get("ppro_htva", 0))
-        origine   = str(product.get("origine", "")).strip()
-        p_l       = str(product.get("p_l", "")).strip()
 
         price_str = f"{pvente:.2f}".replace(".", ",") + "\u20ac"
-        ppht_str  = f"{ppro_htva:.2f}".replace(".", ",")
-        ppttc_str = f"{ppro:.2f}".replace(".", ",")
 
         page_w, page_h = A4   # 595.28 × 841.89 pt (210 × 297 mm)
         half_w  = page_w / 2  # left A5 zone = 105mm
@@ -87,22 +80,9 @@ class PdfGenerator:
         c.setFont("Helvetica-Bold", 64)
         c.drawCentredString(cx, page_h / 2, price_str)
 
-        # ── Price per litre ── bottom-left of left half ──────────────
-        if p_l:
-            c.setFont("Helvetica", 14)
-            c.drawString(margin, margin + 20 * mm,
-                         ExcelReader.format_price_per_litre(p_l))
-
-        # ── Origine ── bottom-right of left half ─────────────────────
-        if origine:
-            c.setFont("Helvetica", 14)
-            c.drawRightString(half_w - margin, margin + 20 * mm,
-                              f"Origine : {origine}")
-
-        # ── Pro prices ── bottom of left half ────────────────────────
-        c.setFont("Helvetica-Bold", 12)
-        c.drawRightString(half_w - margin, margin + 8 * mm,
-                          f"PPHT {ppht_str}    PPTTC {ppttc_str}")
+        # ── HTVA mention ── bottom-right of left half ────────────────
+        c.setFont("Helvetica", 12)
+        c.drawRightString(half_w - margin, margin + 8 * mm, "HTVA")
 
         c.save()
         return output_path
@@ -114,13 +94,8 @@ class PdfGenerator:
         """Generate a label-sized PDF for Dymo LabelWriter 550."""
         article   = clean_article(str(product.get("article", "")).strip())
         pvente    = float(product.get("pvente",    0))
-        ppro      = float(product.get("ppro",      0))
-        ppro_htva = float(product.get("ppro_htva", 0))
 
         price_str = f"{pvente:.2f}".replace(".", ",") + "\u20ac"
-        ppht_str  = f"{ppro_htva:.2f}".replace(".", ",")
-        ppttc_str = f"{ppro:.2f}".replace(".", ",")
-        pro_str   = f"PPHT {ppht_str}   PPTTC {ppttc_str}"
 
         page_w = width_mm  * mm
         page_h = height_mm * mm
@@ -163,10 +138,10 @@ class PdfGenerator:
         c.setFont("Helvetica-Bold", f_price)
         c.drawCentredString(page_w / 2, page_h / 2 - f_price / 2, price_str)
 
-        # ── Pro prices — bottom-right, no € ─────────────────────────
-        c.setFont("Helvetica-Bold", f_pro + 1)
+        # ── HTVA mention — bottom-right ─────────────────────────────
+        c.setFont("Helvetica", f_pro)
         c.setFillColor(colors.black)
-        c.drawRightString(page_w - margin, margin, pro_str)
+        c.drawRightString(page_w - margin, margin, "HTVA")
 
         c.save()
         return output_path

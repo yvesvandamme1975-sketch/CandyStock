@@ -210,22 +210,16 @@ class MainWindow:
         tbl_wrap = tk.Frame(parent, bg=SURFACE)
         tbl_wrap.pack(fill="both", expand=True)
 
-        cols = ("check", "article", "p_l", "pvente", "ppro_htva", "ppro")
+        cols = ("check", "article", "pvente")
         self._tree = ttk.Treeview(tbl_wrap, columns=cols, show="headings",
                                   style="Product.Treeview", selectmode="browse")
         self._tree.heading("check",     text="☐")
         self._tree.heading("article",   text="Article")
-        self._tree.heading("p_l",       text="€/L")
-        self._tree.heading("pvente",    text="Pvente")
-        self._tree.heading("ppro_htva", text="PPHT")
-        self._tree.heading("ppro",      text="PPTTC")
+        self._tree.heading("pvente",    text="Prix HTVA")
 
         self._tree.column("check",     width=30,  minwidth=30,  anchor="center", stretch=False)
-        self._tree.column("article",   width=180, minwidth=100, anchor="w")
-        self._tree.column("p_l",       width=70,  minwidth=50,  anchor="w")
-        self._tree.column("pvente",    width=70,  minwidth=50,  anchor="e")
-        self._tree.column("ppro_htva", width=60,  minwidth=40,  anchor="e")
-        self._tree.column("ppro",      width=60,  minwidth=40,  anchor="e")
+        self._tree.column("article",   width=280, minwidth=100, anchor="w")
+        self._tree.column("pvente",    width=90,  minwidth=50,  anchor="e")
 
         self._tree.tag_configure("even", background=SURFACE)
         self._tree.tag_configure("odd",  background=ROW_ALT)
@@ -506,10 +500,7 @@ class MainWindow:
             tree.insert("", "end", iid=iid, values=(
                 check,
                 row.get("article", ""),
-                ExcelReader.format_price_per_litre(row.get("p_l", "") or ""),
                 fp(row.get("pvente", 0)) + "€",
-                fp(row.get("ppro_htva", 0)),
-                fp(row.get("ppro", 0)),
             ), tags=(tag,))
             self._tree_data[iid] = row
             self._iid_to_key[iid] = key
@@ -654,8 +645,7 @@ class MainWindow:
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
             c.create_text(x0+DW-m, y0+lh-m,
-                          text=(f"PPHT {fp(p.get('ppro_htva', 0))}"
-                                f"   PPTTC {fp(p.get('ppro', 0))}"),
+                          text="HTVA",
                           font=("Arial", f_pro), anchor="se", fill="black")
 
         else:  # A5 on left half of A4 portrait — blank paper
@@ -691,25 +681,10 @@ class MainWindow:
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
 
-            # Price per litre — bottom-left
-            if p.get("p_l"):
-                c.create_text(x0 + m,
-                              y0 + round(a5h * 0.78),
-                              text=ExcelReader.format_price_per_litre(p.get("p_l", "")),
-                              font=("Arial", f_pro), anchor="w", fill="black")
-
-            # Origine — bottom-right
-            if p.get("origine"):
-                c.create_text(x0 + a5w - m,
-                              y0 + round(a5h * 0.78),
-                              text=f"Origine : {p.get('origine', '')}",
-                              font=("Arial", f_pro), anchor="e", fill="black")
-
-            # PPHT / PPTTC — bottom
+            # HTVA mention — bottom-right
             c.create_text(x0 + a5w - m,
                           y0 + round(a5h * 0.88),
-                          text=(f"PPHT {fp(p.get('ppro_htva', 0))}"
-                                f"   PPTTC {fp(p.get('ppro', 0))}"),
+                          text="HTVA",
                           font=("Arial", f_pro), anchor="e", fill="black")
 
     # ── History ───────────────────────────────────────────────────────
