@@ -1,0 +1,66 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'src/**'
+      - 'ui/**'
+      - 'assets/**'
+      - 'requirements.txt'
+      - 'CandyStock.spec'
+      - '.github/workflows/build-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download SumatraPDF portable
+        shell: pwsh
+        run: |
+          curl -L -o SumatraPDF.zip https://www.sumatrapdfreader.org/dl/rel/3.6/SumatraPDF-3.6-64.zip
+          7z x SumatraPDF.zip -osumatra_tmp
+          Move-Item sumatra_tmp\SumatraPDF-3.6-64.exe SumatraPDF.exe
+          Remove-Item -Recurse -Force sumatra_tmp
+          Remove-Item SumatraPDF.zip
+
+      - name: Build single-file EXE
+        run: pyinstaller CandyStock.spec --clean --noconfirm
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CandyStock-Windows
+          path: dist\CandyStock.exe
+          retention-days: 90
+
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: CandyStock — Derniere version
+          body: |
+            Derniere version de CandyStock.exe
+            Telechargez le fichier ci-dessous et lancez-le sur Windows.
+          files: dist/CandyStock.exe
+          make_latest: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

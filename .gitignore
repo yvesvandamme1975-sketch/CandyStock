@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+
+# PyInstaller
+build/
+dist/
+*.spec.bak
+SumatraPDF.exe
+
+# App runtime files
+history.json
+config.json
+
+# macOS
+.DS_Store
+
+# Temp files
+/tmp/
+gofp_*.pdf
+
+# Claude Code
+.claude/
+
+# User data / media files
+*.xlsx
+*.xls
+*.HEIC
+*.heic
