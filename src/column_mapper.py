@@ -21,6 +21,8 @@ SYNONYMS: Dict[str, List[str]] = {
                   "taux de tva"],
     "ean":       ["ean", "barcode", "code barre", "code-barre",
                   "code ean", "ean13", "ean-13", "gtin"],
+    "ean2":      ["ean2", "barcode 2", "barcode2", "code barre 2",
+                  "ean 2", "gtin2", "ean-2"],
 }
 
 REQUIRED = ["article", "pvente"]

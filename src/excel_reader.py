@@ -3,6 +3,35 @@ from typing import List, Dict, Optional, Callable
 from src.column_mapper import ColumnMapper
 
 
+def _parse_ean_str(raw) -> List[str]:
+    """Extract valid EAN strings (8 or 13 digits) from a raw cell value.
+    Handles comma/space-separated multi-EAN cells. Returns 0-2 EANs."""
+    s = str(raw or "").strip()
+    if not s:
+        return []
+    # Try splitting on comma or space for multi-EAN cells
+    for sep in (",", " ", "/"):
+        parts = [p.strip().lstrip("'") for p in s.split(sep) if p.strip()]
+        if len(parts) >= 2:
+            found = []
+            for p in parts[:4]:
+                d = "".join(c for c in p if c.isdigit())
+                if len(d) == 14 and d[0] == "0":
+                    d = d[1:]
+                if len(d) in (8, 13) and d not in found:
+                    found.append(d)
+                if len(found) == 2:
+                    break
+            if len(found) >= 1:
+                return found
+    # Single value
+    cleaned = s.replace(" ", "").lstrip("'")
+    d = "".join(c for c in cleaned if c.isdigit())
+    if len(d) == 14 and d[0] == "0":
+        d = d[1:]
+    return [d] if len(d) in (8, 13) else []
+
+
 class ExcelReader:
     def __init__(self, path: str,
                  mapping_override: Optional[Dict] = None,
@@ -60,25 +89,30 @@ class ExcelReader:
             for sk in ("article", "origine", "p_l"):
                 record[sk] = str(record.get(sk) or "").strip()
 
-            # Normalize EAN: check mapped field first, then scan all values
-            raw_ean = str(record.get("ean") or "").strip().replace(" ", "")
-            raw_ean = raw_ean.lstrip("'")
-            ean_digits = "".join(c for c in raw_ean if c.isdigit())
-            # Also accept 14 digits (leading 0 + EAN-13) → take last 13
-            if len(ean_digits) == 14 and ean_digits[0] == '0':
-                ean_digits = ean_digits[1:]
-            if len(ean_digits) not in (8, 13):
-                # No mapped EAN — scan all values for something that looks like EAN
-                ean_digits = ""
-                for v in row:
-                    s_full = str(v or "").strip().replace(" ", "").lstrip("'")
-                    digits = "".join(c for c in s_full if c.isdigit())
-                    if len(digits) == 14 and digits[0] == '0':
-                        digits = digits[1:]
-                    if len(digits) in (8, 13):
-                        ean_digits = digits
+            # Normalize EAN: extract up to 2 barcodes
+            eans: List[str] = []
+            # 1) Check mapped ean column (may contain 1 or 2 comma-separated)
+            eans.extend(_parse_ean_str(record.get("ean")))
+            # 2) Check mapped ean2 column
+            if len(eans) < 2 and record.get("ean2"):
+                for d in _parse_ean_str(record.get("ean2")):
+                    if d not in eans:
+                        eans.append(d)
+                    if len(eans) == 2:
                         break
-            record["ean"] = ean_digits if len(ean_digits) in (8, 13) else ""
+            # 3) Fallback: scan row values ONLY if no EAN found from mapped columns
+            #    (don't scan for 2nd EAN — risk of false positives from stock/qty cols)
+            if not eans:
+                for v in row:
+                    for d in _parse_ean_str(v):
+                        if d not in eans:
+                            eans.append(d)
+                            break  # only take first EAN from fallback
+                    if eans:
+                        break
+            eans = eans[:2]
+            record["eans"] = eans
+            record["ean"] = eans[0] if eans else ""
 
             self._rows.append(record)
         wb.close()

@@ -638,17 +638,15 @@ class MainWindow:
             art_bbox = c.bbox(art_id)
             art_bottom = art_bbox[3] if art_bbox else y0 + m + f_title * 2
 
-            # Barcode at bottom (PDF: by=margin*0.2, width=30/89mm)
-            ean = str(p.get("ean", "")).strip()
-            barcode_top = y0 + lh - m
-            if ean:
-                bc_item = self._draw_barcode_on_canvas(c, ean,
-                    x0 + DW // 2, y0 + lh - round(lh * 0.02),
-                    target_w=round(DW * 0.337), anchor="s")
-                if bc_item:
-                    bc_bbox = c.bbox(bc_item)
-                    if bc_bbox:
-                        barcode_top = bc_bbox[1]
+            # Barcode(s) at bottom — 1 or 2 side-by-side
+            eans = p.get("eans") or ([p.get("ean", "")] if p.get("ean") else [])
+            barcode_top = self._draw_barcodes_on_canvas(c, eans,
+                x0 + DW // 2, y0 + lh - round(lh * 0.02),
+                w_single=round(DW * 0.337),    # 30/89
+                w_double=round(DW * 0.427),    # 38/89
+                anchor="s")
+            if barcode_top >= y0 + lh - m:
+                barcode_top = y0 + lh - m
 
             # Price centred between article bottom and barcode top
             price_y = (art_bottom + barcode_top) // 2
@@ -702,12 +700,13 @@ class MainWindow:
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
 
-            # Barcode — PDF: bottom at 35mm from bottom = 83.3% from top
-            ean = str(p.get("ean", "")).strip()
-            if ean:
-                self._draw_barcode_on_canvas(c, ean,
-                    x0 + a5w // 2, y0 + round(a5h * 0.83),
-                    target_w=round(a5w * 0.40), anchor="s")
+            # Barcode(s) — 1 or 2 side-by-side
+            eans = p.get("eans") or ([p.get("ean", "")] if p.get("ean") else [])
+            self._draw_barcodes_on_canvas(c, eans,
+                x0 + a5w // 2, y0 + round(a5h * 0.83),
+                w_single=round(a5w * 0.40),    # 60/148.5
+                w_double=round(a5w * 0.37),    # 55/148.5
+                anchor="s")
 
             # Logo — bottom, centred (PDF: at margin=10mm from bottom)
             logo = self._logo_path()
@@ -748,6 +747,33 @@ class MainWindow:
             return item
         except Exception:
             return None
+
+    def _draw_barcodes_on_canvas(self, canvas, eans, cx, cy,
+                                  w_single, w_double, anchor="s"):
+        """Draw 1 or 2 barcodes side-by-side. Returns top y of drawn barcodes."""
+        valid = [e for e in (eans or []) if e]
+        if not valid:
+            return cy
+        if len(valid) == 1:
+            item = self._draw_barcode_on_canvas(
+                canvas, valid[0], cx, cy, target_w=w_single, anchor=anchor)
+            if item:
+                bb = canvas.bbox(item)
+                return bb[1] if bb else cy
+            return cy
+        # Two barcodes side-by-side
+        gap = max(4, w_single // 10)
+        offset = w_double // 2 + gap // 2
+        top = cy
+        for ean, sign in zip(valid[:2], [-1, 1]):
+            item = self._draw_barcode_on_canvas(
+                canvas, ean, cx + sign * offset, cy,
+                target_w=w_double, anchor=anchor)
+            if item:
+                bb = canvas.bbox(item)
+                if bb and bb[1] < top:
+                    top = bb[1]
+        return top
 
     # ── History ───────────────────────────────────────────────────────
 

@@ -36,6 +36,48 @@ def _make_barcode_image(ean: str, module_height=15, font_size=10):
     except Exception:
         return None
 
+def _draw_barcodes_pdf(c, eans, cx, by, available_w,
+                       target_w_single, target_w_double,
+                       module_height, font_size):
+    """Draw 1 or 2 barcodes side-by-side on a ReportLab canvas.
+    Returns barcode_top (y above drawn barcodes)."""
+    valid = [e for e in (eans or []) if e]
+    if not valid or not _HAS_BARCODE:
+        return by
+    if len(valid) == 1:
+        img = _make_barcode_image(valid[0], module_height, font_size)
+        if not img:
+            return by
+        bw, bh = img.size
+        scale = target_w_single / bw
+        draw_bw, draw_bh = target_w_single, bh * scale
+        buf = io.BytesIO(); img.save(buf, "PNG"); buf.seek(0)
+        c.drawImage(ImageReader(buf), cx - draw_bw / 2, by,
+                    draw_bw, draw_bh, mask="auto")
+        return by + draw_bh + 1 * mm
+    # Two barcodes side-by-side
+    gap = 3 * mm
+    imgs = [_make_barcode_image(e, module_height, font_size) for e in valid[:2]]
+    imgs = [i for i in imgs if i]
+    if not imgs:
+        return by
+    if len(imgs) == 1:
+        return _draw_barcodes_pdf(c, [valid[0]], cx, by, available_w,
+                                   target_w_single, target_w_double,
+                                   module_height, font_size)
+    draw_bh = 0
+    for i, (img, sign) in enumerate(zip(imgs, [-1, 1])):
+        bw, bh = img.size
+        scale = target_w_double / bw
+        dw, dh = target_w_double, bh * scale
+        draw_bh = max(draw_bh, dh)
+        offset = gap / 2 + dw / 2
+        bx = cx + sign * offset - dw / 2
+        buf = io.BytesIO(); img.save(buf, "PNG"); buf.seek(0)
+        c.drawImage(ImageReader(buf), bx, by, dw, dh, mask="auto")
+    return by + draw_bh + 1 * mm
+
+
 PAGE_W, PAGE_H = A4   # portrait: 210 × 297 mm
 MARGIN = 10 * mm
 
@@ -126,23 +168,14 @@ class PdfGenerator:
             price_y = min_price_y
         c.drawCentredString(cx, price_y, price_str)
 
-        # ── Barcode ── between price and logo, centred ────────────────
-        ean = str(product.get("ean", "")).strip()
-        barcode_img = _make_barcode_image(ean, module_height=12, font_size=9)
+        # ── Barcode(s) ── between price and logo, 1 or 2 side-by-side ──
+        eans = product.get("eans") or ([product.get("ean", "")] if product.get("ean") else [])
+        eans = [e for e in eans if e]
         barcode_bottom = margin + 25 * mm  # reserve space for logo
-        if barcode_img:
-            bc_buf = io.BytesIO()
-            barcode_img.save(bc_buf, format='PNG')
-            bc_buf.seek(0)
-            bc_reader = ImageReader(bc_buf)
-            bw, bh = barcode_img.size
-            target_bw = 60 * mm
-            bc_scale = target_bw / bw
-            draw_bw = target_bw
-            draw_bh = bh * bc_scale
-            bx = cx - draw_bw / 2
-            by = barcode_bottom
-            c.drawImage(bc_reader, bx, by, draw_bw, draw_bh, mask='auto')
+        _draw_barcodes_pdf(
+            c, eans, cx, barcode_bottom, max_w,
+            target_w_single=60 * mm, target_w_double=55 * mm,
+            module_height=12, font_size=9)
 
         # ── Logo ── bottom, centred ──────────────────────────────────
         if logo_path and os.path.exists(logo_path):
@@ -185,8 +218,8 @@ class PdfGenerator:
 
         max_text_w = page_w - 2 * margin
         cx = page_w / 2
-        ean = str(product.get("ean", "")).strip()
-        has_barcode = bool(ean) and _HAS_BARCODE
+        eans = product.get("eans") or ([product.get("ean", "")] if product.get("ean") else [])
+        eans = [e for e in eans if e]
 
         # ── Layout: top→article, middle→price, bottom→barcode ──────
         # Article at top
@@ -210,24 +243,11 @@ class PdfGenerator:
             c.drawCentredString(cx, art_y - line_gap, line2)
             art_bottom = art_y - line_gap - f_title * 0.3
 
-        # Barcode at bottom (if present)
-        barcode_top = margin
-        if has_barcode:
-            barcode_img = _make_barcode_image(ean, module_height=8, font_size=5)
-            if barcode_img:
-                bc_buf = io.BytesIO()
-                barcode_img.save(bc_buf, format='PNG')
-                bc_buf.seek(0)
-                bc_reader = ImageReader(bc_buf)
-                bw, bh = barcode_img.size
-                target_bw = 30 * mm
-                bc_scale = target_bw / bw
-                draw_bw = target_bw
-                draw_bh = bh * bc_scale
-                bx = (page_w - draw_bw) / 2
-                by = margin * 0.2
-                c.drawImage(bc_reader, bx, by, draw_bw, draw_bh, mask='auto')
-                barcode_top = by + draw_bh + 1 * mm
+        # Barcode(s) at bottom — 1 or 2 side-by-side
+        barcode_top = _draw_barcodes_pdf(
+            c, eans, cx, margin * 0.2, max_text_w,
+            target_w_single=30 * mm, target_w_double=38 * mm,
+            module_height=8, font_size=5)
 
         # Price centred between article bottom and barcode top
         price_y = (art_bottom + barcode_top) / 2 - f_price / 2
