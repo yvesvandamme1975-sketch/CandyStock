@@ -176,27 +176,28 @@ class PdfGenerator:
         page_h = height_mm * mm
         margin = 3 * mm
 
-        # Golden-ratio font stack (8 → 13 → 21 pt)
-        RATIO   = 1.61
-        f_title = 13
-        f_price = 21
+        # Font sizes
+        f_title = 11
+        f_price = 18
 
         c = rl_canvas.Canvas(output_path, pagesize=(page_w, page_h))
-
-        # ── Article title — top-left, bold, up to 2 lines ──────────
-        max_text_w = page_w - 2 * margin
-        c.setFont("Helvetica-Bold", f_title)
         c.setFillColor(colors.black)
 
-        full_w = stringWidth(article, "Helvetica-Bold", f_title)
+        max_text_w = page_w - 2 * margin
         cx = page_w / 2
-        if full_w <= max_text_w:
-            # single line — centred
-            c.drawCentredString(cx, page_h - margin - f_title, article)
+        ean = str(product.get("ean", "")).strip()
+        has_barcode = bool(ean) and _HAS_BARCODE
+
+        # ── Layout: top→article, middle→price, bottom→barcode ──────
+        # Article at top
+        art_y = page_h - margin - f_title
+        c.setFont("Helvetica-Bold", f_title)
+        if stringWidth(article, "Helvetica-Bold", f_title) <= max_text_w:
+            c.drawCentredString(cx, art_y, article)
+            art_bottom = art_y - f_title * 0.3
         else:
-            # wrap to 2 lines at last space that fits
-            words  = article.split()
-            line1  = ""
+            words = article.split()
+            line1 = ""
             for word in words:
                 test = (line1 + " " + word).strip()
                 if stringWidth(test, "Helvetica-Bold", f_title) <= max_text_w:
@@ -204,24 +205,15 @@ class PdfGenerator:
                 else:
                     break
             line2 = article[len(line1):].strip()
-            line_gap = f_title + 2
-            c.drawCentredString(cx, page_h - margin - f_title,           line1)
-            c.drawCentredString(cx, page_h - margin - f_title - line_gap, line2)
+            line_gap = f_title + 1
+            c.drawCentredString(cx, art_y, line1)
+            c.drawCentredString(cx, art_y - line_gap, line2)
+            art_bottom = art_y - line_gap - f_title * 0.3
 
-        # ── Check if we have a barcode to adjust layout ──────────────
-        ean = str(product.get("ean", "")).strip()
-        has_barcode = bool(ean) and _HAS_BARCODE
-
-        # ── Price — push up if barcode present ─────────────────────
-        c.setFont("Helvetica-Bold", f_price)
-        price_y = page_h / 2 - f_price / 2
+        # Barcode at bottom (if present)
+        barcode_top = margin
         if has_barcode:
-            price_y = page_h / 2 + 1 * mm  # shift up to make room
-        c.drawCentredString(page_w / 2, price_y, price_str)
-
-        # ── Barcode — bottom, centred, small but scannable ─────────
-        if has_barcode:
-            barcode_img = _make_barcode_image(ean, module_height=5, font_size=5)
+            barcode_img = _make_barcode_image(ean, module_height=4, font_size=4)
             if barcode_img:
                 bc_buf = io.BytesIO()
                 barcode_img.save(bc_buf, format='PNG')
@@ -233,8 +225,14 @@ class PdfGenerator:
                 draw_bw = target_bw
                 draw_bh = bh * bc_scale
                 bx = (page_w - draw_bw) / 2
-                by = margin * 0.3
+                by = margin * 0.2
                 c.drawImage(bc_reader, bx, by, draw_bw, draw_bh, mask='auto')
+                barcode_top = by + draw_bh + 1 * mm
+
+        # Price centred between article bottom and barcode top
+        price_y = (art_bottom + barcode_top) / 2 - f_price / 2
+        c.setFont("Helvetica-Bold", f_price)
+        c.drawCentredString(cx, price_y, price_str)
 
         c.save()
         return output_path
