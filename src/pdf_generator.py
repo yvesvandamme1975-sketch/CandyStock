@@ -29,60 +29,73 @@ class PdfGenerator:
 
         price_str = f"{pvente:.2f}".replace(".", ",") + "\u20ac/HTVA"
 
-        page_w, page_h = A4   # 595.28 × 841.89 pt (210 × 297 mm)
-        half_w  = page_w / 2  # left A5 zone = 105mm
+        page_w, page_h = A4[1], A4[0]  # landscape: 297 × 210 mm
+        half_w  = page_w / 2  # left A5 zone = 148.5mm
         margin  = 10 * mm
         cx      = half_w / 2  # centre of left half
 
-        c = rl_canvas.Canvas(output_path, pagesize=A4)
+        c = rl_canvas.Canvas(output_path, pagesize=(page_w, page_h))
         c.setFillColor(colors.black)
 
         max_w = half_w - 2 * margin
 
-        # ── Article name ── 2cm from top, centred ────────────────────
+        # ── Article name ── 2cm from top, centred, up to 3 lines ─────
         art_top = page_h - 20 * mm
-        art_font = 56
-        line1 = article
-        line2 = ""
-        two_lines = False
-        # Try single line first, shrink if needed
-        while art_font > 20 and stringWidth(article, "Helvetica-Bold", art_font) > max_w:
-            art_font -= 1
-        if stringWidth(article, "Helvetica-Bold", art_font) > max_w:
-            # Won't fit on one line even at min size — wrap to 2 lines
-            art_font = 48
-            while art_font > 20:
-                words = article.split()
-                l1 = ""
-                for word in words:
-                    test = (l1 + " " + word).strip()
-                    if stringWidth(test, "Helvetica-Bold", art_font) <= max_w:
-                        l1 = test
-                    else:
-                        break
-                l2 = article[len(l1):].strip()
-                if (l1 and
-                        stringWidth(l1, "Helvetica-Bold", art_font) <= max_w and
-                        stringWidth(l2, "Helvetica-Bold", art_font) <= max_w):
-                    break
-                art_font -= 1
-            line1 = l1
-            line2 = l2
-            two_lines = True
 
-        c.setFont("Helvetica-Bold", art_font)
-        if two_lines:
-            c.drawCentredString(cx, art_top, line1)
-            c.drawCentredString(cx, art_top - art_font * 1.2, line2)
+        def _wrap_lines(text, font_name, font_size, max_width):
+            """Wrap text into lines that fit max_width."""
+            words = text.split()
+            lines = []
+            current = ""
+            for word in words:
+                test = (current + " " + word).strip()
+                if stringWidth(test, font_name, font_size) <= max_width:
+                    current = test
+                else:
+                    if current:
+                        lines.append(current)
+                    current = word
+            if current:
+                lines.append(current)
+            return lines
+
+        # Try 1 line at 58pt, then 2 lines at 48pt, then 3 lines shrinking
+        art_font = 58
+        if stringWidth(article, "Helvetica-Bold", 58) <= max_w:
+            # Fits on 1 line
+            art_font = 58
+            lines = [article]
         else:
-            c.drawCentredString(cx, art_top, line1)
+            # Try 2 lines at 48pt, shrink if needed
+            art_font = 48
+            lines = _wrap_lines(article, "Helvetica-Bold", art_font, max_w)
+            while len(lines) > 2 and art_font > 36:
+                art_font -= 1
+                lines = _wrap_lines(article, "Helvetica-Bold", art_font, max_w)
+            if len(lines) > 2:
+                # Really long — allow 3 lines, shrink to fit
+                art_font = 36
+                lines = _wrap_lines(article, "Helvetica-Bold", art_font, max_w)
+                while len(lines) > 3 and art_font > 20:
+                    art_font -= 1
+                    lines = _wrap_lines(article, "Helvetica-Bold", art_font, max_w)
+        c.setFont("Helvetica-Bold", art_font)
+        line_gap = art_font * 1.2
+        for j, line in enumerate(lines):
+            c.drawCentredString(cx, art_top - j * line_gap, line)
 
         # ── Price ── middle of page, centred, big ────────────────────
-        price_font = 90
+        price_font = 100
         while price_font > 30 and stringWidth(price_str, "Helvetica-Bold", price_font) > max_w:
             price_font -= 2
         c.setFont("Helvetica-Bold", price_font)
-        c.drawCentredString(cx, page_h / 2, price_str)
+        # Place at vertical centre, but ensure gap from article
+        price_y = page_h / 2
+        art_bottom = art_top - (len(lines) - 1) * line_gap - art_font * 0.3
+        min_price_y = art_bottom - price_font - 5 * mm
+        if price_y > min_price_y:
+            price_y = min_price_y
+        c.drawCentredString(cx, price_y, price_str)
 
         # ── Logo ── bottom, centred ──────────────────────────────────
         if logo_path and os.path.exists(logo_path):

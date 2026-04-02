@@ -645,16 +645,19 @@ class MainWindow:
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
 
-        else:  # A5 on left half of A4 portrait — blank paper
-            # Preview: left half of A4 portrait (105 × 297 mm ratio)
-            a5w  = DW // 2
-            a5h  = round(a5w * 297 / 105)  # full A4 height ratio
+        else:  # A5 on left half of A4 landscape — blank paper
+            # Preview: left half of A4 landscape (148.5 × 210 mm ratio)
+            a5w  = DW - 16
+            a5h  = round(a5w * 210 / 148.5)
+            if a5h > PH - 16:
+                a5h = PH - 16
+                a5w = round(a5h * 148.5 / 210)
             x0   = (PW - a5w) // 2
             y0   = max(4, (PH - a5h) // 2)
 
-            m       = round(a5w * 0.08)
-            f_title = max(12, round(a5w * 0.12))
-            f_price = max(16, round(a5w * 0.16))
+            m       = round(a5w * 0.06)
+            f_title = max(12, round(a5w * 0.10))
+            f_price = max(16, round(a5w * 0.14))
 
             # Drop-shadow + white card
             c.create_rectangle(x0+3, y0+3, x0+a5w+3, y0+a5h+3,
