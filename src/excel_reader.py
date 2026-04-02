@@ -60,6 +60,26 @@ class ExcelReader:
             for sk in ("article", "origine", "p_l"):
                 record[sk] = str(record.get(sk) or "").strip()
 
+            # Normalize EAN: check mapped field first, then scan all values
+            raw_ean = str(record.get("ean") or "").strip().replace(" ", "")
+            raw_ean = raw_ean.lstrip("'")
+            ean_digits = "".join(c for c in raw_ean if c.isdigit())
+            # Also accept 14 digits (leading 0 + EAN-13) → take last 13
+            if len(ean_digits) == 14 and ean_digits[0] == '0':
+                ean_digits = ean_digits[1:]
+            if len(ean_digits) not in (8, 13):
+                # No mapped EAN — scan all values for something that looks like EAN
+                ean_digits = ""
+                for v in row:
+                    s_full = str(v or "").strip().replace(" ", "").lstrip("'")
+                    digits = "".join(c for c in s_full if c.isdigit())
+                    if len(digits) == 14 and digits[0] == '0':
+                        digits = digits[1:]
+                    if len(digits) in (8, 13):
+                        ean_digits = digits
+                        break
+            record["ean"] = ean_digits if len(ean_digits) in (8, 13) else ""
+
             self._rows.append(record)
         wb.close()
 

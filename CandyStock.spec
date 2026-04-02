@@ -27,6 +27,7 @@ a = Analysis(
     hiddenimports=[
         'tkinterdnd2',
         'fitz', 'fitz._fitz', 'pymupdf',
+        'barcode', 'barcode.ean', 'barcode.writer',
     ] + win32_hidden + fitz_hidden + dnd_hidden,
     hookspath=[],
     hooksconfig={},

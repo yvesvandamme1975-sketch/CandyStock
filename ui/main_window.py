@@ -604,6 +604,7 @@ class MainWindow:
         fp = ExcelReader.format_price
         c  = self._preview_canvas
         c.delete("all")
+        self._barcode_tk_refs = []  # clear old barcode images
 
         RATIO  = 1.61
         PW     = self._PREV_W   # 500
@@ -645,6 +646,13 @@ class MainWindow:
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
 
+            # Barcode — bottom of label
+            ean = str(p.get("ean", "")).strip()
+            if ean:
+                self._draw_barcode_on_canvas(c, ean,
+                    x0 + DW // 2, y0 + lh - round(lh * 0.12),
+                    target_w=round(DW * 0.45), anchor="center")
+
         else:  # A5 on left half of A4 landscape — blank paper
             # Preview: left half of A4 landscape (148.5 × 210 mm ratio)
             a5w  = DW - 16
@@ -680,6 +688,13 @@ class MainWindow:
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
 
+            # Barcode — between price and logo
+            ean = str(p.get("ean", "")).strip()
+            if ean:
+                self._draw_barcode_on_canvas(c, ean,
+                    x0 + a5w // 2, y0 + round(a5h * 0.68),
+                    target_w=round(a5w * 0.55), anchor="center")
+
             # Logo — bottom, centred (use logo image if available)
             logo = self._logo_path()
             if logo and os.path.exists(logo):
@@ -696,6 +711,29 @@ class MainWindow:
                                    image=self._a5_logo_tk, anchor="center")
                 except Exception:
                     pass
+
+    # ── Barcode helper ────────────────────────────────────────────────
+
+    def _draw_barcode_on_canvas(self, canvas, ean, cx, cy,
+                                target_w=120, anchor="center"):
+        """Draw an EAN barcode on a tkinter canvas at (cx, cy)."""
+        try:
+            from src.pdf_generator import _make_barcode_image
+            from PIL import ImageTk
+            img = _make_barcode_image(ean, module_height=10, font_size=8)
+            if not img:
+                return
+            scale = target_w / img.width
+            new_h = int(img.height * scale)
+            img = img.resize((target_w, new_h))
+            # Keep reference to prevent garbage collection
+            if not hasattr(self, '_barcode_tk_refs'):
+                self._barcode_tk_refs = []
+            tk_img = ImageTk.PhotoImage(img)
+            self._barcode_tk_refs.append(tk_img)
+            canvas.create_image(cx, cy, image=tk_img, anchor=anchor)
+        except Exception:
+            pass
 
     # ── History ───────────────────────────────────────────────────────
 

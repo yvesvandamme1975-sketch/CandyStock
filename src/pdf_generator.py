@@ -7,6 +7,35 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from src.text_cleaner import clean_article
 
+try:
+    import barcode as _barcode_mod
+    from barcode.writer import ImageWriter as _ImageWriter
+    _HAS_BARCODE = True
+except ImportError:
+    _HAS_BARCODE = False
+
+
+def _make_barcode_image(ean: str, module_height=15, font_size=10):
+    """Generate an EAN barcode PIL Image. Returns None on failure."""
+    if not _HAS_BARCODE or not ean:
+        return None
+    try:
+        ean_type = 'ean13' if len(ean) == 13 else 'ean8'
+        cls = _barcode_mod.get_barcode_class(ean_type)
+        code = cls(ean, writer=_ImageWriter())
+        buf = io.BytesIO()
+        code.write(buf, options={
+            'write_text': True,
+            'module_height': module_height,
+            'font_size': font_size,
+            'quiet_zone': 2,
+        })
+        buf.seek(0)
+        from PIL import Image
+        return Image.open(buf).copy()
+    except Exception:
+        return None
+
 PAGE_W, PAGE_H = A4   # portrait: 210 × 297 mm
 MARGIN = 10 * mm
 
@@ -97,6 +126,24 @@ class PdfGenerator:
             price_y = min_price_y
         c.drawCentredString(cx, price_y, price_str)
 
+        # ── Barcode ── between price and logo, centred ────────────────
+        ean = str(product.get("ean", "")).strip()
+        barcode_img = _make_barcode_image(ean, module_height=12, font_size=9)
+        barcode_bottom = margin + 25 * mm  # reserve space for logo
+        if barcode_img:
+            bc_buf = io.BytesIO()
+            barcode_img.save(bc_buf, format='PNG')
+            bc_buf.seek(0)
+            bc_reader = ImageReader(bc_buf)
+            bw, bh = barcode_img.size
+            target_bw = 60 * mm
+            bc_scale = target_bw / bw
+            draw_bw = target_bw
+            draw_bh = bh * bc_scale
+            bx = cx - draw_bw / 2
+            by = barcode_bottom
+            c.drawImage(bc_reader, bx, by, draw_bw, draw_bh, mask='auto')
+
         # ── Logo ── bottom, centred ──────────────────────────────────
         if logo_path and os.path.exists(logo_path):
             try:
@@ -161,9 +208,33 @@ class PdfGenerator:
             c.drawCentredString(cx, page_h - margin - f_title,           line1)
             c.drawCentredString(cx, page_h - margin - f_title - line_gap, line2)
 
-        # ── Price — centred vertically and horizontally ─────────────
+        # ── Check if we have a barcode to adjust layout ──────────────
+        ean = str(product.get("ean", "")).strip()
+        has_barcode = bool(ean) and _HAS_BARCODE
+
+        # ── Price — push up if barcode present ─────────────────────
         c.setFont("Helvetica-Bold", f_price)
-        c.drawCentredString(page_w / 2, page_h / 2 - f_price / 2, price_str)
+        price_y = page_h / 2 - f_price / 2
+        if has_barcode:
+            price_y = page_h / 2 + 1 * mm  # shift up to make room
+        c.drawCentredString(page_w / 2, price_y, price_str)
+
+        # ── Barcode — bottom, centred, small but scannable ─────────
+        if has_barcode:
+            barcode_img = _make_barcode_image(ean, module_height=5, font_size=5)
+            if barcode_img:
+                bc_buf = io.BytesIO()
+                barcode_img.save(bc_buf, format='PNG')
+                bc_buf.seek(0)
+                bc_reader = ImageReader(bc_buf)
+                bw, bh = barcode_img.size
+                target_bw = 30 * mm
+                bc_scale = target_bw / bw
+                draw_bw = target_bw
+                draw_bh = bh * bc_scale
+                bx = (page_w - draw_bw) / 2
+                by = margin * 0.3
+                c.drawImage(bc_reader, bx, by, draw_bw, draw_bh, mask='auto')
 
         c.save()
         return output_path
