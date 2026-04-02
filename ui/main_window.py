@@ -686,10 +686,19 @@ class MainWindow:
                           anchor="n", fill="black",
                           width=a5w - 2 * m, justify="center")
 
-            # Price — middle of page, centred
+            # Price — middle of page, auto-shrink to fit (matches PDF)
+            price_text = f"{fp(p.get('pvente', 0))}€/HTVA"
+            max_text_w = a5w - 2 * m
+            import tkinter.font as tkfont
+            while f_price > 16:
+                tw = tkfont.Font(family="Arial", size=f_price,
+                                 weight="bold").measure(price_text)
+                if tw <= max_text_w:
+                    break
+                f_price -= 2
             c.create_text(x0 + a5w // 2,
                           y0 + a5h // 2,
-                          text=f"{fp(p.get('pvente', 0))}€/HTVA",
+                          text=price_text,
                           font=("Arial", f_price, "bold"),
                           anchor="center", fill="black")
 
