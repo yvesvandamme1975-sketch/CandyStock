@@ -217,7 +217,8 @@ class MainWindow:
 
         cols = ("check", "article", "pvente")
         self._tree = ttk.Treeview(tbl_wrap, columns=cols, show="headings",
-                                  style="Product.Treeview", selectmode="browse")
+                                  style="Product.Treeview", selectmode="browse",
+                                  height=12)
         self._tree.heading("check",     text="☐")
         self._tree.heading("article",   text="Article")
         self._tree.heading("pvente",    text="Prix HTVA")
@@ -229,20 +230,24 @@ class MainWindow:
         self._tree.tag_configure("even", background=SURFACE)
         self._tree.tag_configure("odd",  background=ROW_ALT)
 
-        tbl_sb = ttk.Scrollbar(tbl_wrap, orient="vertical", command=self._tree.yview)
+        # Use tk.Scrollbar (not ttk) — always visible on Windows 11
+        tbl_sb = tk.Scrollbar(tbl_wrap, orient="vertical", command=self._tree.yview,
+                              width=16, bg="#CCCCCC", troughcolor="#F0F0F0",
+                              activebackground="#999999")
         self._tree.configure(yscrollcommand=tbl_sb.set)
         self._tree.pack(side="left", fill="both", expand=True)
         tbl_sb.pack(side="right", fill="y")
 
-        # Mouse wheel scrolling (Windows + macOS)
+        # Mouse wheel scrolling — bind to root so it works everywhere
         def _on_mousewheel(event):
             if sys.platform == "darwin":
                 self._tree.yview_scroll(-event.delta, "units")
             else:
                 self._tree.yview_scroll(-event.delta // 120, "units")
-        self._tree.bind("<MouseWheel>", _on_mousewheel)
-        self._tree.bind("<Button-4>", lambda e: self._tree.yview_scroll(-3, "units"))
-        self._tree.bind("<Button-5>", lambda e: self._tree.yview_scroll(3, "units"))
+        self._root.bind_all("<MouseWheel>", _on_mousewheel)
+        self._root.bind_all("<Button-4>", lambda e: self._tree.yview_scroll(-3, "units"))
+        self._root.bind_all("<Button-5>",
+                            lambda e: self._tree.yview_scroll(3, "units"))
 
         # Click on row → preview; click on check column → toggle checkbox
         # Click on ☐ heading → toggle select all
