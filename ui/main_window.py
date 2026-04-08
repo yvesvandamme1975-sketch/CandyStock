@@ -49,7 +49,7 @@ class MainWindow:
 
         self._root = TkinterDnD.Tk()
         ctk.set_appearance_mode("light")
-        self._root.title("CandyStock — Impression étiquettes  (v2.1)")
+        self._root.title("CandyStock — Impression étiquettes  (v2.2)")
         self._root.geometry("1200x720")
         self._root.configure(bg=BG)
 
@@ -63,6 +63,15 @@ class MainWindow:
         if sys.platform == "darwin":
             self._root.after(150, self._macos_activate)
 
+        # Auto-load last used Excel file (all platforms)
+        self._root.after(200, self._auto_load_last_file)
+
+    def _auto_load_last_file(self):
+        """Auto-load last used Excel file on startup (all platforms)."""
+        last = self._config.get("last_excel_path")
+        if last and os.path.exists(last):
+            self._load_excel(last)
+
     def _macos_activate(self):
         try:
             import subprocess, os as _os
@@ -75,10 +84,6 @@ class MainWindow:
             pass
         self._root.lift()
         self._root.focus_force()
-
-        last = self._config.get("last_excel_path")
-        if last and os.path.exists(last):
-            self._load_excel(last)
 
     # ── UI construction ───────────────────────────────────────────────
 
@@ -443,7 +448,7 @@ class MainWindow:
     def _on_search_change(self, *_):
         if self._search_after_id:
             self._root.after_cancel(self._search_after_id)
-        self._search_after_id = self._root.after(150, self._do_search)
+        self._search_after_id = self._root.after(300, self._do_search)
 
     def _do_search(self):
         self._search_after_id = None
@@ -484,6 +489,8 @@ class MainWindow:
     def _stable_key(row, idx):
         return (row.get("article", ""), str(row.get("pvente", 0)), idx)
 
+    _MAX_DISPLAY = 500  # cap rows to prevent UI freeze on Windows
+
     def _populate_table(self, rows: list):
         tree = self._tree
         tree.delete(*tree.get_children())
@@ -492,7 +499,10 @@ class MainWindow:
         self._key_to_iid.clear()
         fp = ExcelReader.format_price
 
-        for i, row in enumerate(rows):
+        total = len(rows)
+        display = rows[:self._MAX_DISPLAY]
+
+        for i, row in enumerate(display):
             iid = str(i)
             key = self._stable_key(row, i)
             tag = "even" if i % 2 == 0 else "odd"
@@ -506,6 +516,7 @@ class MainWindow:
             self._iid_to_key[iid] = key
             self._key_to_iid[key] = iid
 
+        self._total_rows = total
         self._update_sel_counter()
 
     def _on_tree_select(self, event):
@@ -541,11 +552,14 @@ class MainWindow:
 
     def _update_sel_counter(self):
         n = len(self._checked_keys)
-        if n == 0:
-            self._sel_counter.configure(text="")
-        else:
-            self._sel_counter.configure(
-                text=f"{n} produit{'s' if n > 1 else ''} sélectionné{'s' if n > 1 else ''}")
+        total = getattr(self, '_total_rows', 0)
+        displayed = len(self._tree_data)
+        parts = []
+        if total > displayed:
+            parts.append(f"{displayed}/{total} affichés")
+        if n > 0:
+            parts.append(f"{n} sélectionné{'s' if n > 1 else ''}")
+        self._sel_counter.configure(text=" — ".join(parts) if parts else "")
 
     def _select_product(self, product: dict):
         # Deselect previous history row
