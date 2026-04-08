@@ -234,6 +234,16 @@ class MainWindow:
         self._tree.pack(side="left", fill="both", expand=True)
         tbl_sb.pack(side="right", fill="y")
 
+        # Mouse wheel scrolling (Windows + macOS)
+        def _on_mousewheel(event):
+            if sys.platform == "darwin":
+                self._tree.yview_scroll(-event.delta, "units")
+            else:
+                self._tree.yview_scroll(-event.delta // 120, "units")
+        self._tree.bind("<MouseWheel>", _on_mousewheel)
+        self._tree.bind("<Button-4>", lambda e: self._tree.yview_scroll(-3, "units"))
+        self._tree.bind("<Button-5>", lambda e: self._tree.yview_scroll(3, "units"))
+
         # Click on row → preview; click on check column → toggle checkbox
         # Click on ☐ heading → toggle select all
         self._tree.bind("<<TreeviewSelect>>", self._on_tree_select)

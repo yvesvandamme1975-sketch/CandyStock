@@ -1,6 +1,13 @@
-import openpyxl
+import openpyxl, unicodedata
 from typing import List, Dict, Optional, Callable
 from src.column_mapper import ColumnMapper
+
+
+def _normalize(text: str) -> str:
+    """Lowercase, strip accents, collapse whitespace."""
+    text = text.lower().strip()
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def _parse_ean_str(raw) -> List[str]:
@@ -133,25 +140,39 @@ class ExcelReader:
     def all_rows(self) -> List[Dict]:
         return list(self._rows)
 
+    @staticmethod
+    def _match(row: Dict, words: List[str]) -> bool:
+        """Multi-word, accent-insensitive search across article + price."""
+        article = _normalize(row.get("article", ""))
+        price = str(row.get("pvente", ""))
+        haystack = article + " " + price
+        return all(w in haystack for w in words)
+
     def search(self, query: str) -> List[Dict]:
         if not query:
             return self.all_rows()
-        q = query.lower().strip()
-        return [r for r in self._rows if q in r.get("article", "").lower()]
+        words = _normalize(query).split()
+        if not words:
+            return self.all_rows()
+        return [r for r in self._rows if self._match(r, words)]
 
     def suggestions(self, query: str, limit: int = 8) -> List[str]:
         if not query:
             return []
-        q = query.lower().strip()
+        words = _normalize(query).split()
+        if not words:
+            return []
         return [r["article"] for r in self._rows
-                if q in r.get("article", "").lower()][:limit]
+                if self._match(r, words)][:limit]
 
     def search_with_suggestions(self, query: str, limit: int = 8):
-        """Single-pass: returns (suggestion_names, matching_rows)."""
+        """Single-pass: multi-word, accent-insensitive search."""
         if not query:
             return [], self.all_rows()
-        q = query.lower().strip()
-        results = [r for r in self._rows if q in r.get("article", "").lower()]
+        words = _normalize(query).split()
+        if not words:
+            return [], self.all_rows()
+        results = [r for r in self._rows if self._match(r, words)]
         suggestions = [r["article"] for r in results[:limit]]
         return suggestions, results
 
