@@ -190,11 +190,11 @@ class MainWindow:
             corner_radius=8, border_width=1,
         ).pack(fill="x", padx=12)
 
-        # Suggestion dropdown frame
+        # Suggestion dropdown frame — hidden when empty
         self._suggest_frame = tk.Frame(
             parent, bg="#FAFAFA",
             highlightthickness=1, highlightbackground=BORDER)
-        self._suggest_frame.pack(fill="x", padx=12)
+        # NOT packed yet — only shown when suggestions exist
 
         # ── Treeview product table ────────────────────────────────────
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", pady=(8, 0))
@@ -481,6 +481,8 @@ class MainWindow:
         self._populate_table(results)
 
     def _add_suggestion(self, name: str):
+        if not self._suggestion_btns:
+            self._suggest_frame.pack(fill="x", padx=12)  # show frame
         btn = tk.Button(
             self._suggest_frame, text=name,
             anchor="w", relief="flat",
@@ -494,6 +496,7 @@ class MainWindow:
         for b in self._suggestion_btns:
             b.destroy()
         self._suggestion_btns.clear()
+        self._suggest_frame.pack_forget()  # hide frame when empty
 
     def _pick_suggestion(self, name: str):
         self._search_var.set(name)
