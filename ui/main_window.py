@@ -214,12 +214,12 @@ class MainWindow:
 
         tbl_wrap = tk.Frame(parent, bg=SURFACE)
         tbl_wrap.pack(fill="both", expand=True)
-        tbl_wrap.pack_propagate(False)   # FORCE fixed height — prevents Treeview from expanding
+        tbl_wrap.grid_rowconfigure(0, weight=1)
+        tbl_wrap.grid_columnconfigure(0, weight=1)
 
         cols = ("check", "article", "pvente")
         self._tree = ttk.Treeview(tbl_wrap, columns=cols, show="headings",
-                                  style="Product.Treeview", selectmode="browse",
-                                  height=12)
+                                  style="Product.Treeview", selectmode="browse")
         self._tree.heading("check",     text="☐")
         self._tree.heading("article",   text="Article")
         self._tree.heading("pvente",    text="Prix HTVA")
@@ -236,8 +236,8 @@ class MainWindow:
                               width=16, bg="#CCCCCC", troughcolor="#F0F0F0",
                               activebackground="#999999")
         self._tree.configure(yscrollcommand=tbl_sb.set)
-        tbl_sb.pack(side="right", fill="y")    # scrollbar FIRST — claims 16px
-        self._tree.pack(side="left", fill="both", expand=True)  # tree fills rest
+        self._tree.grid(row=0, column=0, sticky="nsew")
+        tbl_sb.grid(row=0, column=1, sticky="ns")
 
         # Mouse wheel scrolling — bind to root so it works everywhere
         def _on_mousewheel(event):
