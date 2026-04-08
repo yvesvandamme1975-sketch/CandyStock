@@ -236,8 +236,8 @@ class MainWindow:
                               width=16, bg="#CCCCCC", troughcolor="#F0F0F0",
                               activebackground="#999999")
         self._tree.configure(yscrollcommand=tbl_sb.set)
-        self._tree.pack(side="left", fill="both", expand=True)
-        tbl_sb.pack(side="right", fill="y")
+        tbl_sb.pack(side="right", fill="y")    # scrollbar FIRST — claims 16px
+        self._tree.pack(side="left", fill="both", expand=True)  # tree fills rest
 
         # Mouse wheel scrolling — bind to root so it works everywhere
         def _on_mousewheel(event):
