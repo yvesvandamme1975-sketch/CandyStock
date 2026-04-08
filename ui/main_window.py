@@ -214,6 +214,7 @@ class MainWindow:
 
         tbl_wrap = tk.Frame(parent, bg=SURFACE)
         tbl_wrap.pack(fill="both", expand=True)
+        tbl_wrap.pack_propagate(False)   # FORCE fixed height — prevents Treeview from expanding
 
         cols = ("check", "article", "pvente")
         self._tree = ttk.Treeview(tbl_wrap, columns=cols, show="headings",
