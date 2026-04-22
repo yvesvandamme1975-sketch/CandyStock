@@ -903,7 +903,6 @@ class MainWindow:
             DymoPrinter.print_label_pdf(tmp_path, printer_name=name)
             self._history.add(self._selected_product, fmt="label")
             self._refresh_history()
-            messagebox.showinfo("Succès", "Étiquette envoyée à l'imprimante.")
         except Exception as e:
             messagebox.showerror("Erreur impression", str(e))
 
@@ -1023,9 +1022,6 @@ class MainWindow:
         self._refresh_history()
         if errors:
             messagebox.showerror("Erreurs", "\n".join(errors))
-        else:
-            messagebox.showinfo("Succès",
-                f"{len(products)} étiquette(s) envoyée(s) à l'imprimante.")
 
     def _batch_print_a4(self):
         products = self._get_checked_products()
